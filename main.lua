@@ -28,13 +28,20 @@ function lovr.update()
         local x, y, z, sx, sy, sz, a, ax, ay, az = voice.transform:unpack()
         voice.source:setPose(x, y, z, a, ax, ay, az)
     end
+    local captured = lovr.audio.getCaptureDuration("samples")
+    if captured > 0 then
+        print("gots some data")
+        local data = lovr.audio.capture()
+        lovr.filesystem.append("audio.pcm", data:getBlob():getString())
+    end
 end
 
 function lovr.draw()
     for _, voice in ipairs(voices) do
         lovr.graphics.setColor(voice.color)
         lovr.graphics.cube("line", voice.transform)
-        local frac = voice.source:tell() / voice.source:getDuration()
+        local tell = voice.source.tell and voice.source.tell or voice.source.getTime
+        local frac = tell(voice.source) / voice.source:getDuration()
         lovr.graphics.cube("fill", lovr.math.mat4(voice.transform):translate(0.5-frac/2,0,0):scale(frac,1,1))
     end
 end
