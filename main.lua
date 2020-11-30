@@ -2,6 +2,8 @@
 -- elke.ogg: https://freesound.org/people/Eelke/sounds/232991/
 
 local voices = {}
+local capturedSamples = 0 
+local micStarted = nil
 
 function makeVoice(file, color)
     local voice = {
@@ -30,9 +32,14 @@ function lovr.update()
     end
     local captured = lovr.audio.getCaptureDuration("samples")
     if captured > 0 then
-        print("gots some data")
+        capturedSamples = capturedSamples + captured
         local data = lovr.audio.capture()
         lovr.filesystem.append("audio.pcm", data:getBlob():getString())
+    end
+
+    if lovr.headset.wasPressed("hand/left", "trigger") or lovr.headset.wasPressed("hand/right", "a") then
+        micStarted = lovr.audio.start("capture")
+        lovr.filesystem.write("audio.pcm", "")
     end
 end
 
@@ -44,4 +51,6 @@ function lovr.draw()
         local frac = tell(voice.source) / voice.source:getDuration()
         lovr.graphics.cube("fill", lovr.math.mat4(voice.transform):translate(0.5-frac/2,0,0):scale(frac,1,1))
     end
+    if micStarted == nil then lovr.graphics.setColor(1,1,1,1) elseif micStarted == true then lovr.graphics.setColor(0,1,0,1) else lovr.graphics.setColor(1,0,0,1) end
+    lovr.graphics.print(string.format("Captured %.2fs", capturedSamples/44100), 0, 1.5, -2, 0.1)
 end
