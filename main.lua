@@ -4,10 +4,11 @@
 local voices = {}
 local capturedSamples = 0 
 local micStarted = nil
+local generator
 
 function makeVoice(file, color)
     local voice = {
-        source= lovr.audio.newSource(file, "static"),
+        source= lovr.audio.newSource(file, {spatial=true}),
         color= color,
         transform= lovr.math.newMat4(),
     }
@@ -18,7 +19,8 @@ end
 
 function lovr.load()
     local colors = {0xff0000, 0x00ff00, 0x0000ff}
-    for i, file in ipairs({"elke.ogg", "erokia.ogg"}) do
+    generator = lovr.data.newSoundData(44100, 1, 44100, "i16")
+    for i, file in ipairs({"elke.ogg", "erokia.ogg", generator}) do
         local voice = makeVoice(file, colors[i])
         table.insert(voices, voice)
     end
