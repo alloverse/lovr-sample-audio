@@ -4,7 +4,9 @@
 local voices = {}
 local capturedSamples = 0 
 local micStarted = nil
-local generator
+local sampleRate = 44100
+local micGen = lovr.data.newSoundDataStream(sampleRate*1.0, 1, sampleRate, "f32")
+local sinGen = lovr.data.newSoundDataStream(sampleRate*1.0, 1, sampleRate, "i16")
 
 function makeVoice(file, color)
     local voice = {
@@ -12,23 +14,48 @@ function makeVoice(file, color)
         color= color,
         transform= lovr.math.newMat4(),
     }
-    voice.source:setLooping(true)
+    pcall(voice.source.setLooping, voice.source, true)
     voice.source:play()
     return voice
 end
 
 function lovr.load()
-    local colors = {0xff0000, 0x00ff00, 0x0000ff}
-    generator = lovr.data.newSoundData(44100, 1, 44100, "i16")
-    for i, file in ipairs({"elke.ogg", "erokia.ogg", generator}) do
+    local devices = lovr.audio.getDevices()
+    for i, device in ipairs(devices) do
+        print(device.type..": "..device.name..(device.isDefault and " [default]" or " "))
+    end
+    --lovr.audio.useDevice(devices[5].identifier)
+
+    local colors = {0xff0000, 0x00ff00, 0x0000ff, 0xff00ff}
+    for i, file in ipairs({"elke.ogg", "erokia.ogg", micGen, sinGen}) do
         local voice = makeVoice(file, colors[i])
         table.insert(voices, voice)
     end
+    generateAudio(0.2)
 end
 
-function lovr.update()
+local f = 0.0
+function generateAudio(dt)
+	if dt > 0.1 then
+		dt = 0.1
+	end
+	local c = dt * sampleRate
+	local sd = lovr.data.newSoundData(c, 1, sampleRate, "i16")
+	for i=0, c-1 do
+		t = math.floor(math.fmod(f, 2)) * 500 + 1500
+		sd:setSample(i, math.sin(f*t) * 0.6)
+		f = f + 1/sampleRate
+	end
+	sinGen:append(sd)
+	if not voices[4].source:isPlaying() then
+		print("Starting playback")
+		voices[4].source:play()
+	end
+end
+
+function lovr.update(dt)
     for i, voice in ipairs(voices) do
-        voice.transform:identity():translate(0,1.4,0):rotate(lovr.timer.getTime()/2.0 + i*3.14, 0, 1, 0):translate(0,0,-4)
+        voice.transform:identity():translate(0,1.4,0):rotate(lovr.timer.getTime()/2.0 + i*(6.28/#voices), 0, 1, 0):translate(0,0,-4)
         local x, y, z, sx, sy, sz, a, ax, ay, az = voice.transform:unpack()
         voice.source:setPose(x, y, z, a, ax, ay, az)
     end
@@ -37,7 +64,11 @@ function lovr.update()
         capturedSamples = capturedSamples + captured
         local data = lovr.audio.capture()
         lovr.filesystem.append("audio.pcm", data:getBlob():getString())
+        micGen:append(data)
+        voices[3].source:play()
     end
+
+    generateAudio(dt)
 
     if lovr.headset.wasPressed("hand/left", "trigger") or lovr.headset.wasPressed("hand/right", "a") then
         micStarted = lovr.audio.start("capture")
