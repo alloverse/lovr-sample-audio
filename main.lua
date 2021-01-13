@@ -20,11 +20,17 @@ function makeVoice(file, color)
 end
 
 function lovr.load()
-    local devices = lovr.audio.getDevices()
-    for i, device in ipairs(devices) do
+    local pdevices = lovr.audio.getDevices("playback")
+    for i, device in ipairs(pdevices) do
         print(device.type..": "..device.name..(device.isDefault and " [default]" or " "))
     end
-    --lovr.audio.useDevice(devices[2].identifier)
+    print("----")
+    local cdevices = lovr.audio.getDevices("capture")
+    for i, device in ipairs(cdevices) do
+        print(device.type..": "..device.name..(device.isDefault and " [default]" or " "))
+    end
+    print("----")
+    --lovr.audio.useDevice("playback", pdevices[2].name)
 
     local colors = {0xff0000, 0x00ff00, 0x0000ff, 0xff00ff}
     for i, file in ipairs({"elke.ogg", "erokia.ogg", sinGen}) do
@@ -61,7 +67,7 @@ function lovr.update(dt)
         local x, y, z, sx, sy, sz, a, ax, ay, az = voice.transform:unpack()
         voice.source:setPose(x, y, z, a, ax, ay, az)
     end
-    local captureStream = lovr.audio.getCaptureStream()
+    local captureStream = lovr.audio.getCaptureStream and lovr.audio.getCaptureStream()
     if captureStream and not micGen then
         micGen = captureStream
         table.insert(voices, makeVoice(micGen, 0xff00ff))
