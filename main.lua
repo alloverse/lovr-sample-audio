@@ -5,8 +5,8 @@ local voices = {}
 local capturedSamples = 0 
 local micStarted = nil
 local sampleRate = 44100
-local micGen = lovr.data.newSoundDataStream(sampleRate*1.0, 1, sampleRate, "f32")
-local sinGen = lovr.data.newSoundDataStream(sampleRate*1.0, 1, sampleRate, "i16")
+local micGen = nil --lovr.data.newSoundData(sampleRate*1.0, 1, sampleRate, "f32", "stream")
+local sinGen = lovr.data.newSoundData(sampleRate*1.0, 1, sampleRate, "i16", "stream")
 
 function makeVoice(file, color)
     local voice = {
@@ -24,10 +24,10 @@ function lovr.load()
     for i, device in ipairs(devices) do
         print(device.type..": "..device.name..(device.isDefault and " [default]" or " "))
     end
-    --lovr.audio.useDevice(devices[5].identifier)
+    --lovr.audio.useDevice(devices[2].identifier)
 
     local colors = {0xff0000, 0x00ff00, 0x0000ff, 0xff00ff}
-    for i, file in ipairs({"elke.ogg", "erokia.ogg", micGen, sinGen}) do
+    for i, file in ipairs({"elke.ogg", "erokia.ogg", sinGen}) do
         local voice = makeVoice(file, colors[i])
         table.insert(voices, voice)
     end
@@ -46,10 +46,12 @@ function generateAudio(dt)
 		sd:setSample(i, math.sin(f*t) * 0.6)
 		f = f + 1/sampleRate
 	end
-	sinGen:append(sd)
-	if not voices[4].source:isPlaying() then
-		print("Starting playback")
-		voices[4].source:play()
+    sinGen:append(sd)
+    for i, v in ipairs(voices) do
+        if not v.source:isPlaying() then
+		    print("Starting playback", i)
+            v.source:play()
+        end
 	end
 end
 
@@ -59,13 +61,13 @@ function lovr.update(dt)
         local x, y, z, sx, sy, sz, a, ax, ay, az = voice.transform:unpack()
         voice.source:setPose(x, y, z, a, ax, ay, az)
     end
-    local captured = lovr.audio.getCaptureDuration("samples")
-    if captured > 0 then
-        capturedSamples = capturedSamples + captured
-        local data = lovr.audio.capture()
-        lovr.filesystem.append("audio.pcm", data:getBlob():getString())
-        micGen:append(data)
-        voices[3].source:play()
+    local captureStream = lovr.audio.getCaptureStream()
+    if captureStream and not micGen then
+        micGen = captureStream
+        table.insert(voices, makeVoice(micGen, 0xff00ff))
+    end
+    if micGen then
+        capturedSamples = micGen:getDuration("samples")
     end
 
     generateAudio(dt)
