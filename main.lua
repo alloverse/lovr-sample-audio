@@ -5,12 +5,12 @@ local voices = {}
 local capturedSamples = 0 
 local micStarted = nil
 local sampleRate = 44100
-local micGen = nil --lovr.data.newSoundData(sampleRate*1.0, 1, sampleRate, "f32", "stream")
-local sinGen = lovr.data.newSoundData(sampleRate*1.0, 1, sampleRate, "i16", "stream")
+local micGen = nil
+local sinGen = lovr.data.newSound(sampleRate*1.0, "f32", "mono", sampleRate, "stream")
 
 function makeVoice(file, color)
     local voice = {
-        source= lovr.audio.newSource(file, {spatial=true}),
+        source= lovr.audio.newSource(file),
         color= color,
         transform= lovr.math.newMat4(),
     }
@@ -20,14 +20,16 @@ function makeVoice(file, color)
 end
 
 function lovr.load()
+    lovr.system.requestPermission('audiocapture')
+
     local pdevices = lovr.audio.getDevices("playback")
     for i, device in ipairs(pdevices) do
-        print(device.type..": "..device.name..(device.isDefault and " [default]" or " "))
+        print(device.name..(device.default and " [default]" or " "))
     end
     print("----")
     local cdevices = lovr.audio.getDevices("capture")
     for i, device in ipairs(cdevices) do
-        print(device.type..": "..device.name..(device.isDefault and " [default]" or " "))
+        print(device.name..(device.default and " [default]" or " "))
     end
     print("----")
     --lovr.audio.useDevice("playback", pdevices[2].name)
@@ -38,21 +40,7 @@ function lovr.load()
         table.insert(voices, voice)
     end
     generateAudio(0.2)
-end
 
-local f = 0.0
-function generateAudio(dt)
-	if dt > 0.1 then
-		dt = 0.1
-	end
-	local c = dt * sampleRate
-	local sd = lovr.data.newSoundData(c, 1, sampleRate, "i16")
-	for i=0, c-1 do
-		t = math.floor(math.fmod(f, 2)) * 500 + 1500
-		sd:setSample(i, math.sin(f*t) * 0.6)
-		f = f + 1/sampleRate
-	end
-    sinGen:append(sd)
     for i, v in ipairs(voices) do
         if not v.source:isPlaying() then
 		    print("Starting playback", i)
@@ -61,11 +49,32 @@ function generateAudio(dt)
 	end
 end
 
+local f = 0.0
+function generateAudio(dt)
+	if dt > 0.1 then
+		dt = 0.1
+	end
+	local c = dt * sampleRate
+    local frames = {}
+	for i=0, c-1 do
+		t = math.floor(math.fmod(f, 2)) * 500 + 1500
+        local sample = math.sin(f*t) * 0.6
+        table.insert(frames, sample)
+		f = f + 1/sampleRate
+	end
+    sinGen:setFrames(frames, c)
+end
+
 function lovr.update(dt)
     for i, voice in ipairs(voices) do
         voice.transform:identity():translate(0,1.4,0):rotate(lovr.timer.getTime()/2.0 + i*(6.28/#voices), 0, 1, 0):translate(0,0,-4)
         local x, y, z, sx, sy, sz, a, ax, ay, az = voice.transform:unpack()
         voice.source:setPose(x, y, z, a, ax, ay, az)
+    end
+    if not micGen then
+        micGen = lovr.data.newSound(sampleRate*1.0, "f32", mono, sampleRate, "stream")
+        local success = lovr.audio.setDevice("capture", nil, micGen, "shared")
+        print("Capture set device", success)
     end
     local captureStream = lovr.audio.getCaptureStream and lovr.audio.getCaptureStream()
     if captureStream and not micGen then
