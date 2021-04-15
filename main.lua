@@ -40,13 +40,6 @@ function lovr.load()
         table.insert(voices, voice)
     end
     generateAudio(0.2)
-
-    for i, v in ipairs(voices) do
-        if not v.source:isPlaying() then
-		    print("Starting playback", i)
-            v.source:play()
-        end
-	end
 end
 
 local f = 0.0
@@ -75,17 +68,22 @@ function lovr.update(dt)
         micGen = lovr.data.newSound(sampleRate*1.0, "f32", mono, sampleRate, "stream")
         local success = lovr.audio.setDevice("capture", nil, micGen, "shared")
         print("Capture set device", success)
-    end
-    local captureStream = lovr.audio.getCaptureStream and lovr.audio.getCaptureStream()
-    if captureStream and not micGen then
-        micGen = captureStream
+        if success then
         table.insert(voices, makeVoice(micGen, 0xff00ff))
+        end
     end
     if micGen then
         capturedSamples = micGen:getDuration("samples")
     end
 
-    generateAudio(dt)
+    --generateAudio(dt)
+
+    for i, v in ipairs(voices) do
+        if not v.source:isPlaying() then
+		    print("Starting playback", i)
+            v.source:play()
+        end
+	end
 
     if lovr.headset.wasPressed("hand/left", "trigger") or lovr.headset.wasPressed("hand/right", "a") then
         micStarted = lovr.audio.start("capture")
